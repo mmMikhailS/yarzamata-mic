@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import * as dotenv from 'dotenv';
@@ -36,17 +35,10 @@ async function bootstrap() {
       },
     }),
   );
-
-  app.use(
-    cookieParser({
-      origin: 'http://localhost:4001',
-      credentials: true,
-    }),
-  );
-
-  const port = 4001;
-
+  app.use(cookieParser());
   app.useLogger(logger);
+
+  const port = process.env.PORT || 4001;
 
   await app.listen(port, () => logger.log(port));
   await microservice.listen();

@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import * as dotenv from 'dotenv';
@@ -25,7 +24,6 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      // Можно добавить кастомное сообщение об ошибке
       exceptionFactory: (errors) => {
         return new BadRequestException(
           errors.map((error) => ({
@@ -37,26 +35,10 @@ async function bootstrap() {
     }),
   );
 
-  app.use(
-    cookieParser({
-      origin: 'http://localhost:4003',
-      credentials: true,
-    }),
-  );
-  const config = new DocumentBuilder()
-    .setTitle('yArzamata')
-    .setDescription('yArzamata duo project')
-    .setVersion('1.0')
-    .build();
+  app.use(cookieParser());
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/swagger', app, document);
-  app.enableCors({
-    origin: 'http://localhost:4003',
-    methods: 'GET,POST,PUT,DELETE',
-    allowedHeaders: 'Content-Type,Authorization',
-  });
-  const port = 4003;
+  app.enableCors();
+  const port = process.env.PORT || 4003;
 
   app.useLogger(logger);
 

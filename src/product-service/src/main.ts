@@ -25,7 +25,6 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      // Можно добавить кастомное сообщение об ошибке
       exceptionFactory: (errors) => {
         return new BadRequestException(
           errors.map((error) => ({
@@ -39,14 +38,9 @@ async function bootstrap() {
 
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  app.use(
-    cookieParser({
-      origin: 'http://localhost:4004',
-      credentials: true,
-    }),
-  );
+  app.use(cookieParser());
 
-  const port = 4004;
+  const port = process.env.PORT || 4004;
 
   app.useLogger(logger);
 

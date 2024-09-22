@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './exception/error.exception';
 
 async function bootstrap() {
   const logger = new Logger();
@@ -33,28 +33,12 @@ async function bootstrap() {
     }),
   );
 
-  // app.useGlobalFilters(new HttpExceptionFilter());
-  app.use(
-    cookieParser({
-      origin: 'http://localhost:4002',
-      credentials: true,
-    }),
-  );
-  const config = new DocumentBuilder()
-    .setTitle('yArzamata')
-    .setDescription('yArzamata duo project')
-    .setVersion('1.0')
-    .build();
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.use(cookieParser());
 
-  app.enableCors({
-    origin: 'http://localhost:4002',
-    methods: 'GET,POST,PUT,DELETE',
-    allowedHeaders: 'Content-Type,Authorization',
-  });
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/swagger', app, document);
+  app.enableCors();
 
-  const port = 4002;
+  const port = process.env.PORT || 4002;
 
   app.useLogger(logger);
 

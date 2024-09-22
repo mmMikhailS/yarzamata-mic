@@ -26,29 +26,18 @@ async function bootstrap() {
       },
     }),
   );
-
   app.useGlobalFilters(new HttpExceptionFilter());
-  app.use(
-    cookieParser({
-      origin: 'http://localhost:5004',
-      credentials: true,
-    }),
-  );
+  app.use(cookieParser());
   const config = new DocumentBuilder()
     .setTitle('yArzamata')
     .setDescription('yArzamata duo project')
     .setVersion('1.0')
     .build();
 
-  app.enableCors({
-    origin: 'http://localhost:5004',
-    methods: 'GET,POST,PUT,DELETE',
-    allowedHeaders: 'Content-Type,Authorization',
-    credentials: true,
-  });
+  app.enableCors();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/swagger', app, document);
-  const port = 5004;
+  const port = process.env.PORT || 5004;
 
   await app.listen(port, () => console.log(port));
 }
