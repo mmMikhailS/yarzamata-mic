@@ -1,17 +1,17 @@
 # First stage: Build the application
 FROM node:20 AS build
 
-WORKDIR /yArzamataDev
+WORKDIR /yArzamataDev/src/auth-service
 COPY package*.json ./
 RUN npm install
 COPY . .
 RUN npm install
-RUN npx prisma generate
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # Second stage: Use the built application
 FROM node:20
 
-WORKDIR /yArzamataDev
+WORKDIR /yArzamataDev/src/auth-service
 COPY package*.json ./
 RUN npm install --only-production
 
