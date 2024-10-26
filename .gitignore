@@ -1,7 +1,8 @@
 const.ts
-todo.list.txt
 .env.txt
 .env
+todo.txt
+
 **/node_modules/
 **/dist/
 

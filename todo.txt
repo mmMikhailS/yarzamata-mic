@@ -1,1 +1,11 @@
-reg g  ret
+activate account
+register redirect
+activate account link + uuid!!!!!!
+errors to frontend
+прописать сообщения, разные
+mail order
+names
+new Message
+if promise == undefined res
+filter for obj
+consumer eachmessage
