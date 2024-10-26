@@ -3,6 +3,7 @@ const.ts
 .env
 todo.txt
 
+**/dist
 **/node_modules/
 **/dist/
 
