@@ -1,34 +1,16 @@
 import { MailerModule } from '@nestjs-modules/mailer';
 import { Module } from '@nestjs/common';
 import { AppService } from './app.service';
-import {
-  ClientProvider,
-  ClientsModule,
-  Transport,
-} from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MailController } from './mail.controller';
 
 @Module({
-  controllers: [],
+  controllers: [MailController],
   providers: [AppService],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ClientsModule.registerAsync([
-      {
-        name: 'MAIL_SERVICE',
-        imports: [ConfigModule],
-        inject: [ConfigModule],
-        useFactory: (configService: ConfigService): ClientProvider => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('HOST') || 'localhost',
-            port: configService.get<number>('MAIL_MODULE_PORT') || 3002,
-          },
-        }),
-      },
-    ]),
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

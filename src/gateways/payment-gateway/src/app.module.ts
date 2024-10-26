@@ -1,39 +1,22 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import {
-  ClientProvider,
-  ClientsModule,
-  Transport,
-} from '@nestjs/microservices';
+import { ConfigModule } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtModule } from '@nestjs/jwt';
+import { ResponsePaymentController } from './kafka/app.response.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ClientsModule.registerAsync([
-      {
-        name: 'PAYMENT_SERVICE',
-        imports: [ConfigModule],
-        inject: [ConfigService],
-        useFactory: (configService: ConfigService): ClientProvider => ({
-          transport: Transport.TCP,
-          options: {
-            host: configService.get<string>('HOST') || 'localhost',
-            port: configService.get<number>('PAYMENT_MODULE_PORT') || 3003,
-          },
-        }),
-      },
-    ]),
+
     JwtModule.register({
       secret: process.env.SECRET_KEY,
     }),
   ],
-  controllers: [AppController],
+  controllers: [AppController, ResponsePaymentController],
   providers: [AppService, PrismaService],
 })
 export class AppModule {}

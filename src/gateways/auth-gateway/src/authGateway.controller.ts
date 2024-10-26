@@ -18,44 +18,28 @@ import { ChangePasswordResponses } from './responses/authResponses/changePasswor
 import { RefreshResponses } from './responses/authResponses/refresh.response';
 import { ActivateAccountResponses } from './responses/authResponses/activateAccount.response';
 import { AuthGatewayService } from './authGateway.service';
-import { catchError } from 'rxjs';
 
-@Controller('auth')
+@Controller('/auth')
 export class AuthGatewayController {
   constructor(private authGatewayService: AuthGatewayService) {}
 
   @ApiTags('Authorization')
-  @ApiExcludeEndpoint()
-  @Get('register')
-  get() {
-    return this.authGatewayService.getRegister();
-  }
-
-  @ApiTags('Authorization')
   @ApiOperation({ summary: 'Register a new user' })
   @RegisterResponses()
-  @Post('register')
+  @Post('/register')
   async registration(@Body() dto: registrationUserDto, @Res() res: any) {
-    const registered$ = await this.authGatewayService.register(dto);
-    registered$
-      .pipe(
-        catchError((e) => {
-          res.status(400).json({ message: e.message });
-          return [];
-        }),
-      )
-      .subscribe((registered) => {
-        res
-          .setHeader(
-            'Authorization',
-            `Bearer ${registered.tokens.refreshToken}`,
-          )
-          .cookie('refreshToken', registered.tokens.refreshToken, {
-            httpOnly: true,
-            maxAge: 3600000,
-          })
-          .json(registered);
-      });
+    try {
+      const registered: any = await this.authGatewayService.register(dto);
+      res
+        .setHeader('authorization', `Bearer ${registered.tokens.refreshToken}`)
+        .cookie('refreshToken', registered.tokens.refreshToken, {
+          httpOnly: true,
+          maxAge: 3600000,
+        })
+        .json(registered);
+    } catch (e) {
+      res.status(400).json({ message: e.message, e });
+    }
   }
 
   @ApiTags('Authorization')
@@ -70,23 +54,18 @@ export class AuthGatewayController {
   @LoginResponses()
   @Post('login')
   async login(@Body() dto: loginDto, @Res() res: any) {
-    const login$ = await this.authGatewayService.login(dto);
-    login$
-      .pipe(
-        catchError((e) => {
-          res.status(400).json({ message: e.message });
-          return [];
-        }),
-      )
-      .subscribe((login) => {
-        res
-          .setHeader('Authorization', `Bearer ${login.tokens.refreshToken}`)
-          .cookie('refreshToken', login.tokens.refreshToken, {
-            httpOnly: true,
-            maxAge: 3600000,
-          })
-          .json(login);
-      });
+    try {
+      const login: any = await this.authGatewayService.login(dto);
+      res
+        .setHeader('authorization', `Bearer ${login.tokens.refreshToken}`)
+        .cookie('refreshToken', login.tokens.refreshToken, {
+          httpOnly: true,
+          maxAge: 3600000,
+        })
+        .json(login);
+    } catch (e) {
+      res.status(400).json({ message: e.message });
+    }
   }
 
   @ApiTags('Authorization')
@@ -103,24 +82,12 @@ export class AuthGatewayController {
   @UseGuards(AuthMiddleware)
   @ApiOperation({ summary: 'change password' })
   async changePassword(@Body() dto: changePassDto, @Res() res: any) {
-    const changedPassword$ = await this.authGatewayService.changePassword(dto);
-    changedPassword$
-      .pipe(
-        catchError((e) => {
-          res.status(400).json({ message: e.message });
-          return [];
-        }),
-      )
-      .subscribe((changedPassword) => {
-        res.json(changedPassword);
-      });
-  }
-
-  @ApiTags('Authorization')
-  @ApiExcludeEndpoint()
-  @Get('refresh')
-  getRefresh() {
-    return 'activate';
+    try {
+      const changedPassword = await this.authGatewayService.changePassword(dto);
+      res.json(changedPassword);
+    } catch (e) {
+      res.status(400).json({ message: e.message });
+    }
   }
 
   @ApiTags('Authorization')
@@ -130,26 +97,16 @@ export class AuthGatewayController {
   @Post('refresh')
   async refresh(@Req() req: any, @Res() res: any) {
     try {
-      const refreshToken = req.cookies['refreshToken'];
-      const refreshed$ = await this.authGatewayService.refresh(refreshToken);
-      refreshed$
-        .pipe(
-          catchError((e) => {
-            res.status(400).json({ message: e.message });
-            return [];
-          }),
-        )
-        .subscribe((refreshed) => {
-          res
-            .setHeader('Authorization', `Bearer ${refreshed.refreshToken}`)
-            .cookie('refreshToken', refreshed.refreshToken, {
-              httpOnly: true,
-              maxAge: 3600000,
-            })
-            .json(refreshed);
-        });
+      const refreshToken = req.cookies['authorization'];
+      const refreshed = await this.authGatewayService.refresh(refreshToken);
+      res.json(refreshed);
+      // .setHeader('Authorization', `Bearer ${refreshed.tokens.refreshToken}`)
+      // .cookie('refreshToken', refreshed.tokens.refreshToken, {
+      //   httpOnly: true,
+      //   maxAge: 3600000,
+      // })
     } catch (e) {
-      return e;
+      res.status(400).json({ message: e.message });
     }
   }
 
@@ -170,20 +127,14 @@ export class AuthGatewayController {
     @Req() req: any,
     @Res() res: any,
   ) {
-    const refreshToken = req.cookies['refreshToken'];
-    const activatedAccount$ = await this.authGatewayService.activateAccount(
-      code,
-      refreshToken,
-    );
-    activatedAccount$
-      .pipe(
-        catchError((e) => {
-          res.status(400).json({ message: e.message });
-          return [];
-        }),
-      )
-      .subscribe((activatedAccount) => {
-        res.json(activatedAccount);
-      });
+    try {
+      const refreshToken = req.cookies['refreshToken'];
+      const data = { code, refreshToken };
+      const activatedAccount =
+        await this.authGatewayService.activateAccount(data);
+      res.json(activatedAccount);
+    } catch (e) {
+      res.status(400).json({ message: e.message });
+    }
   }
 }

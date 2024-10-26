@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import * as argon2id from 'argon2';
@@ -13,18 +15,32 @@ import { registrationUserDto } from './dto/authDto/registrationUserDto.dto';
 import { userDto } from './dto/authDto/user.payload';
 import { loginDto } from './dto/authDto/login.dto';
 import { changePassDto } from './dto/authDto/changePass.dto';
+import { kafka } from './kafka/kafka';
 
 @Injectable()
-export class AppService {
+export class AppService implements OnModuleInit, OnModuleDestroy {
+  private producer: any;
+
   constructor(
     private userRepository: UserRepository,
     private activateRepository: ActivateRepository,
     private tokenService: TokenService,
     private tokenRepository: TokenRepository,
-  ) {}
+  ) {
+    this.producer = kafka.producer();
+  }
+
+  async onModuleInit() {
+    await this.producer.connect();
+    console.log('producer connected');
+  }
+
+  async onModuleDestroy() {
+    await this.producer.disconnect();
+    console.log('producer disconnected');
+  }
 
   async register(dto: registrationUserDto) {
-    console.log(1);
     const candidate = await this.userRepository.findUserByEmail(dto.email);
 
     if (candidate) {
@@ -38,7 +54,6 @@ export class AppService {
       const activationCode = uuid.v4().replace(/\D/g, '').slice(0, 6);
       const activateLink = uuid.v4();
       const hashedActivationCode = await argon2id.hash(activationCode);
-      console.log(1);
 
       const user = await this.userRepository.createUser(
         dto.email,
@@ -52,12 +67,16 @@ export class AppService {
         user.id,
       );
 
-      // this.mailGatewayController.VerificationMail(dto.email, activationCode);
-
       const payload = new userDto(user);
       const tokens = await this.tokenService.generateTokens({ ...payload });
-
       await this.tokenRepository.create(tokens.refreshToken, user.id);
+
+      await this.producer.send({
+        topic: 'verification-mail',
+        message: [
+          { value: JSON.stringify({ to: dto.email, code: activationCode }) },
+        ],
+      });
 
       if (!tokens) {
         throw new BadRequestException('server error');
@@ -96,10 +115,14 @@ export class AppService {
       const tokens = await this.tokenService.generateTokens({ ...payload });
       await this.tokenRepository.create(tokens.refreshToken, user.id);
 
+      await this.producer.send({
+        topic: 'login-mail',
+        messages: [{ value: JSON.stringify({ to: dto.email, code: null }) }],
+      });
       // this.mailGatewayController.LoginMail(dto.email);
       return {
         id: user.id,
-        isActivated: activateUser.isActivated,
+        isActivated: activateUser.isActivated || false,
         activationLink: activateUser.activationLink,
         tokens,
       };
@@ -155,7 +178,10 @@ export class AppService {
         dto.email,
         hashedNewPassword,
       );
-      // this.mailGatewayController.ChangedPasswordMail(dto.email);
+      await this.producer.send({
+        topic: 'change-password-mail',
+        message: [{ value: JSON.stringify(dto.email, null) }],
+      });
 
       return result;
     } catch (e) {

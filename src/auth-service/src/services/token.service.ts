@@ -10,18 +10,18 @@ export class TokenService {
   ) {}
 
   async generateAccessToken(payload: { access: string }) {
-    return await this.jwt.sign(payload, {
+    return this.jwt.sign(payload, {
       secret: 'fewfafiawjfiaf',
       expiresIn: '15m',
     });
   }
 
   async generateTokens(payload: any) {
-    const refreshToken = await this.jwt.sign(payload, {
+    const refreshToken = this.jwt.sign(payload, {
       secret: 'fewfafiawjfiaf',
       expiresIn: '30d',
     });
-    const accessToken = await this.jwt.sign(payload, {
+    const accessToken = this.jwt.sign(payload, {
       secret: 'fewfafiawjfiafa',
       expiresIn: '30m',
     });

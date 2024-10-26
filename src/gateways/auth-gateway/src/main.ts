@@ -1,16 +1,16 @@
 import { NestFactory } from '@nestjs/core';
-import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from '../../mail-gateway/src/exception/error.exception';
 import * as dotenv from 'dotenv';
+import { HttpExceptionFilter } from './exception/error.exception';
 
 dotenv.config();
 
 async function bootstrap() {
+  const logger = new Logger('Main');
   const app = await NestFactory.create(AppModule);
-
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -38,9 +38,9 @@ async function bootstrap() {
   app.enableCors();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/swagger', app, document);
-  const port = process.env.PORT || 5001;
+  const port = process.env.PORT || 5002;
 
-  await app.listen(port, () => console.log(port));
+  await app.listen(port, () => logger.log(port));
 }
 
 bootstrap();

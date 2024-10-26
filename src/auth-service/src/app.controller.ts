@@ -1,84 +1,111 @@
-import { Controller, InternalServerErrorException } from '@nestjs/common';
-import { MessagePattern } from '@nestjs/microservices';
-import { registrationUserDto } from './dto/authDto/registrationUserDto.dto';
+import {
+  BadRequestException,
+  Controller,
+  InternalServerErrorException,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
+import { AppService } from './app.service';
+import { kafka } from './kafka/kafka';
+import { Message, subscribeTopics } from './utils/utils';
 import { loginDto } from './dto/authDto/login.dto';
 import { changePassDto } from './dto/authDto/changePass.dto';
-import { AppService } from './app.service';
+import { registrationUserDto } from './dto/authDto/registrationUserDto.dto';
 
-@Controller('auth')
-export class AppController {
-  constructor(private readonly authService: AppService) {}
+@Controller()
+export class AppController implements OnModuleInit, OnModuleDestroy {
+  private consumer: any;
+  private producer: any;
 
-  @MessagePattern({ cmd: 'get-register-user' })
-  async get() {
-    return 'register';
+  constructor(private readonly authService: AppService) {
+    this.consumer = kafka.consumer({ groupId: 'auth' });
+    this.producer = kafka.producer();
   }
 
-  @MessagePattern({ cmd: 'register-user' })
-  async register(dto: registrationUserDto) {
+  async onModuleInit() {
     try {
-      console.log(1);
-      const register = await this.authService.register(dto);
-      if (!register) {
-        throw new InternalServerErrorException('something went wrong');
+      type topicHandler = (data: any, messageId: string) => Promise<any>;
+      const topics: Record<string, topicHandler> = {
+        'register-user': this.register.bind(this),
+        'login-user': this.login.bind(this),
+        'change-password': this.changePassword.bind(this),
+        refresh: this.refresh.bind(this),
+        'activate-account': this.activateAccount.bind(this),
+      };
+      await this.producer.connect();
+      await this.consumer.connect();
+      console.log('consumer and producer connected');
+      for (const topic of subscribeTopics) {
+        await this.consumer.subscribe({ topic });
       }
-
-      return register;
+      await this.consumer.run({
+        eachMessage: async ({ topic, partition, message }) => {
+          console.log(JSON.parse(message.value));
+          if (!message.value)
+            throw new BadRequestException('message value equals undefined');
+          const value = JSON.parse(message.value);
+          if (!value)
+            throw new BadRequestException('message value equals undefined');
+          if (!topics[topic])
+            throw new InternalServerErrorException('function equals undefined');
+          await topics[topic](value.data, value.messageId);
+        },
+      });
     } catch (e) {
-      throw e.message;
-    }
-  }
-
-  @MessagePattern({ cmd: 'get-login-user' })
-  async getlogin() {
-    return 'login';
-  }
-
-  @MessagePattern({ cmd: 'login-user' })
-  async login(dto: loginDto) {
-    console.log(1);
-    try {
-      return await this.authService.login(dto);
-    } catch (e) {
-      throw e.message;
-    }
-  }
-
-  @MessagePattern({ cmd: 'get-change-password' })
-  async getChangePassword() {
-    return 'changePassword';
-  }
-
-  @MessagePattern({ cmd: 'change-password' })
-  async changePassword(dto: changePassDto) {
-    return await this.authService.changePassword(dto);
-  }
-
-  @MessagePattern({ cmd: 'get-refresh' })
-  async getRefresh() {
-    return 'refresh';
-  }
-
-  @MessagePattern({ cmd: 'refresh' })
-  async refresh(refreshToken: string) {
-    try {
-      return await this.authService.refresh(refreshToken);
-    } catch (e) {
+      console.error('Error connecting to Kafka', e);
       throw e;
     }
   }
 
-  @MessagePattern({ cmd: 'get-activate-account' })
-  async activateAccountg() {
-    return 'activateAccount';
+  async onModuleDestroy() {
+    await this.producer.disconnect();
+    await this.consumer.disconnect();
+    console.log('consumer and producer disconnected');
   }
 
-  @MessagePattern({ cmd: 'activate-account' })
-  async activateAccount(code: string, refreshToken: string) {
-    try {
-      return await this.authService.activateAccount(code, refreshToken);
-    } catch (e) {
-      throw e;
-    }
+  async register(data: registrationUserDto, messageId: string) {
+    const result = await this.authService.register(data);
+    await this.producer.send({
+      topic: 'register-user-response',
+      messages: [{ value: JSON.stringify(new Message(result, messageId)) }],
+    });
+  }
+
+  async login(data: loginDto, messageId: string) {
+    const result = await this.authService.login(data);
+    await this.producer.send({
+      topic: 'login-user-response',
+      messages: [{ value: JSON.stringify(new Message(result, messageId)) }],
+    });
+  }
+
+  async changePassword(data: changePassDto, messageId: string) {
+    const result = await this.authService.changePassword(data);
+    await this.producer.send({
+      topic: 'change-password-response',
+      messages: [{ value: JSON.stringify(new Message(result, messageId)) }],
+    });
+  }
+
+  async refresh(refreshToken: string, messageId: string) {
+    const result = await this.authService.refresh(refreshToken);
+    await this.producer.send({
+      topic: 'refresh-response',
+      messages: [{ value: JSON.stringify(new Message(result, messageId)) }],
+    });
+  }
+
+  async activateAccount(
+    data: { code: any; refreshToken: string },
+    messageId: string,
+  ) {
+    const result = await this.authService.activateAccount(
+      data.code,
+      data.refreshToken,
+    );
+    await this.producer.send({
+      topic: 'activate-account-response',
+      messages: [{ value: JSON.stringify(new Message(result, messageId)) }],
+    });
   }
 }

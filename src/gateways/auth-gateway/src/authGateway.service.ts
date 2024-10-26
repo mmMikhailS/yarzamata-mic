@@ -1,74 +1,135 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { registrationUserDto } from './dto/authDto/registrationUserDto.dto';
 import { loginDto } from './dto/authDto/login.dto';
 import { changePassDto } from './dto/authDto/changePass.dto';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  activateAccountPromise,
+  changePasswordPromise,
+  loginPromise,
+  Message,
+  refreshPromise,
+  registrationPromise,
+  topicsType,
+} from './utils/utils';
+import { kafka } from './kafka/kafka';
 
 @Injectable()
-export class AuthGatewayService {
-  constructor(
-    @Inject('AUTH_SERVICE') private readonly authClient: ClientProxy,
-    @Inject('MAIL_SERVICE') private readonly mailClient: ClientProxy,
-  ) {}
+export class AuthGatewayService implements OnModuleInit, OnModuleDestroy {
+  producer: any;
 
-  getRegister() {
-    return this.authClient.send({ cmd: 'get-register-user' }, {});
+  private async promiseSendMessage(
+    data: any,
+    promiseMap: any,
+    topic: topicsType,
+  ) {
+    const promise = this.promiseMessage(promiseMap);
+
+    await this.producer
+      .send({
+        topic,
+        messages: [
+          { value: JSON.stringify(new Message(data, promise.messageId)) },
+        ],
+      })
+      .then((result) => {
+        console.log('message sent: ' + result);
+        return result;
+      })
+      .catch((e) => {
+        console.error(`payment gateway error: ` + e);
+        throw e;
+      });
+    // this.mailClient.emit(
+    //   { cmd: 'verification-mail' },
+    //   { to: dto.email, code: register.code },
+    // );
+    return await promise.promise;
   }
 
-  register(dto: registrationUserDto) {
+  private promiseMessage(mapPromise: Map<any, any>) {
+    const messageId = uuidv4();
+    const promise = new Promise((resolve, reject) => {
+      mapPromise.set(messageId, { resolve, reject });
+    });
+    return { messageId, promise };
+  }
+
+  constructor() {
+    this.producer = kafka.producer();
+  }
+
+  async onModuleInit() {
     try {
-      const register: any = this.authClient.send({ cmd: 'register-user' }, dto);
-
-      this.mailClient.send(
-        { cmd: 'verification-mail' },
-        { to: dto.email, code: register.code },
-      );
-
-      return register;
+      await this.producer.connect();
+      console.log('producer connected');
     } catch (e) {
+      console.error('Error connecting to Kafka', e);
       throw e;
     }
   }
 
-  login(dto: loginDto) {
-    try {
-      return this.authClient.send({ cmd: 'login-user' }, dto);
-    } catch (e) {
-      throw e;
-    }
+  async onModuleDestroy() {
+    await this.producer.disconnect();
+    console.log('producer disconnected');
   }
 
-  changePassword(dto: changePassDto) {
+  async register(dto: registrationUserDto) {
     try {
-      const changePassword: any = this.authClient.send(
-        { cmd: 'change-password' },
+      return await this.promiseSendMessage(
         dto,
+        registrationPromise,
+        'register-user',
       );
-      return changePassword;
+    } catch (e) {
+      console.error('Error in register method', e);
+      throw e;
+    }
+  }
+
+  async login(dto: loginDto) {
+    try {
+      return await this.promiseSendMessage(dto, loginPromise, 'login-user');
+      // this.mailClient.emit(
+      //   {cmd: ''},
+      //   {to: dto.email}
+      // )
     } catch (e) {
       throw e;
     }
   }
 
-  refresh(refreshToken: string) {
+  async changePassword(dto: changePassDto) {
     try {
-      const refreshed: any = this.authClient.send(
-        { cmd: 'refresh' },
-        { refreshToken },
+      return await this.promiseSendMessage(
+        dto,
+        changePasswordPromise,
+        'change-password',
       );
-      return refreshed;
     } catch (e) {
       throw e;
     }
   }
 
-  activateAccount(code: string, refreshToken: string) {
+  async refresh(refreshToken: string) {
     try {
-      const activated: any = this.authClient.send(
-        { cmd: 'activate-account' },
-        { code, refreshToken },
+      return await this.promiseSendMessage(
+        refreshToken,
+        refreshPromise,
+        'refresh',
       );
-      return activated;
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  async activateAccount(data: { code: string; refreshToken: string }) {
+    try {
+      return await this.promiseSendMessage(
+        data,
+        activateAccountPromise,
+        'activate-account',
+      );
     } catch (e) {
       throw e;
     }

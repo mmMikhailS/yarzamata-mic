@@ -10,7 +10,8 @@ export class ProductRepository {
     @InjectModel('Product') private readonly productModel: Model<Product>,
   ) {}
 
-  async getAllProducts(sort: { field: string; order: 'asc' | 'desc' }[]) {
+  async getAllProducts(sort: [{ field: string; order: 'asc' | 'desc' }]) {
+    console.log(sort);
     const sortOptions = sort.reduce((acc, curr) => {
       acc[curr.field] = curr.order === 'asc' ? 1 : -1;
       return acc;
@@ -30,6 +31,6 @@ export class ProductRepository {
   }
 
   async deleteByName(name: string): Promise<Product | null> {
-    return await this.productModel.findOneAndDelete({ name }).exec(); // будет сиидеть айди и имя удалять по имени будем
+    return await this.productModel.findOneAndDelete({ name }).exec();
   }
 }

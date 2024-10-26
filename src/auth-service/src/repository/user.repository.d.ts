@@ -23,8 +23,8 @@ export declare class UserRepository {
         counter: number;
     }>;
     updateUser(email: string, password: string): Promise<{
-        id: number;
         fullName: string;
+        id: number;
         isAdmin: boolean;
     }>;
     createUser(email: string, password: string, fullName: string): Promise<{

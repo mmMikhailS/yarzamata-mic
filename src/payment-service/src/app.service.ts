@@ -42,14 +42,14 @@ export class AppService {
     return data.access_token;
   }
 
-  async createOrder(
-    shippingAddress: ShippingAddressDto,
-    product: ProductDto[],
-  ) {
+  async createOrder(data: {
+    shippingAddress: ShippingAddressDto;
+    products: ProductDto[];
+  }) {
     const url = `${process.env.PAYPAL_API_BASE_URL}/v2/checkout/orders`;
     const accessToken = await this.getAccessToken();
-    console.log(product);
-    const totalValue = product.reduce(
+    console.log(data.products);
+    const totalValue = data.products.reduce(
       (acc, item) => acc + +item.unit_amount.value * +item.quantity,
       0,
     );
@@ -58,7 +58,7 @@ export class AppService {
       intent: 'CAPTURE',
       purchase_units: [
         {
-          items: product.map((item) => ({
+          items: data.products.map((item) => ({
             name: item.name,
             description: item.description,
             quantity: item.quantity.toString(),
@@ -79,19 +79,20 @@ export class AppService {
           },
           shipping: {
             name: {
-              full_name: shippingAddress?.name?.fullName,
+              full_name: data.shippingAddress?.name?.fullName,
             },
             address: {
-              address_line_1: shippingAddress?.address?.addressLine1,
-              address_line_2: shippingAddress?.address?.addressLine2,
-              admin_area_2: shippingAddress?.address?.adminArea2,
-              admin_area_1: shippingAddress?.address?.adminArea1,
-              postal_code: shippingAddress?.address?.postalCode,
-              country_code: shippingAddress?.address?.countryCode,
+              address_line_1: data.shippingAddress?.address?.addressLine1,
+              address_line_2: data.shippingAddress?.address?.addressLine2,
+              admin_area_2: data.shippingAddress?.address?.adminArea2,
+              admin_area_1: data.shippingAddress?.address?.adminArea1,
+              postal_code: data.shippingAddress?.address?.postalCode,
+              country_code: data.shippingAddress?.address?.countryCode,
             },
             phone_number: {
-              country_code: shippingAddress?.phoneNumber?.countryCode,
-              national_number: shippingAddress?.phoneNumber?.nationalNumber,
+              country_code: data.shippingAddress?.phoneNumber?.countryCode,
+              national_number:
+                data.shippingAddress?.phoneNumber?.nationalNumber,
             },
           },
         },

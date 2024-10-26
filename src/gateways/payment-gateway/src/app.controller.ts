@@ -4,7 +4,6 @@ import { ShippingAddressDto } from './dto/paymentDto/shippingAddress.Dto';
 import { ProductDto } from './dto/paymentDto/paymentProducts.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthMiddleware } from './middleware/auth.middleware';
-import { catchError } from 'rxjs';
 import { CreateOrderResponse } from './responses/createOrder.responses';
 
 @Controller('payment')
@@ -16,7 +15,7 @@ export class AppController {
   @CreateOrderResponse()
   @UseGuards(AuthMiddleware)
   @Post('createOrder')
-  createOrder(
+  async createOrder(
     @Body()
     paymentData: {
       shippingAddress: ShippingAddressDto;
@@ -24,17 +23,11 @@ export class AppController {
     },
     @Res() res: any,
   ) {
-    const createdOrder$ = this.appService.createOrder(paymentData);
-
-    createdOrder$
-      .pipe(
-        catchError((e) => {
-          res.json(400).json({ message: e.message });
-          return [];
-        }),
-      )
-      .subscribe((createdOrder) => {
-        res.json({ createdOrder });
-      });
+    try {
+      const createdOrder = await this.appService.createOrder(paymentData);
+      res.json({ createdOrder });
+    } catch (e) {
+      res.json(400).json({ message: e.message });
+    }
   }
 }
